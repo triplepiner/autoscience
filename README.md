@@ -1,14 +1,23 @@
-# ⬢ Autoscience — Autonomous Workshop-Paper Pipeline
+![Autoscience 1.0](docs/banner.png)
 
-**One idea file in → one workshop-submittable PDF out, gated by a judge that refuses
-to ship unverified or oversold results.** It **never** auto-submits to a venue — the
-terminal output is a compiled PDF + a verdict, and pressing *submit* is always a human act.
+<div align="center">
 
-This repo is the **orchestrator**: a machine that drives `codex` agents
-(planner → coder → judge), gates them, caps them, and stops them safely. It never
-produces scientific content itself — everything substantive routes through codex. On top
-of it sits **Mission Control**, a local web dashboard for running, watching, revising, and
-placing papers.
+# Autoscience 1.0
+
+### The most powerful scientific discovery agent available.
+
+**One idea file in → one verified, submission-ready paper out** — driven by a
+planner → coder → judge loop of autonomous agents, with a judge that refuses to ship
+unverified or oversold results. It **never** auto-submits; pressing *submit* is always a human act.
+
+</div>
+
+Autoscience turns a one-line research idea into a compiled workshop PDF: agents do the
+research, write the code, run the experiments, and draft the paper — while an **independent
+judge re-runs the reproduction and blocks any number it can't verify**. It produces scientific
+content only through these agents; the orchestrator's job is to drive them, gate them, cap them,
+and stop them safely. On top sits **Mission Control**, a local dashboard to launch runs in
+parallel, watch them live, chat with each, revise them, scout venues, and prepare submissions.
 
 ![Mission Control dashboard](docs/screenshots/01-board.png)
 
