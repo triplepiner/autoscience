@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AUTOSCIENCE — Mission Control</title>
+<style>
+  :root{
+    --bg:#070b11; --panel:#0e141d; --panel2:#0b1019; --panel3:#121a25;
+    --line:#1c2735; --line2:#28384c; --text:#cdd8e6; --dim:#62718a; --faint:#3a4759;
+    --green:#4ade80; --amber:#fbbf24; --red:#f87171; --violet:#a78bfa;
+    --orange:#fb923c; --cyan:#5eead4; --blue:#60a5fa;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--text); font-family:var(--mono); font-size:13px;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -8%, rgba(94,234,212,.05), transparent),
+      linear-gradient(rgba(255,255,255,.013) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.013) 1px, transparent 1px);
+    background-size:auto,36px 36px,36px 36px;
+  }
+  ::selection{background:rgba(94,234,212,.25)}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:var(--line2);border-radius:5px}
+  ::-webkit-scrollbar-track{background:transparent}
+  button{font-family:var(--mono)}
+
+  header{
+    display:flex;align-items:center;gap:16px;padding:13px 22px;
+    border-bottom:1px solid var(--line); background:rgba(7,11,17,.9);
+    position:sticky;top:0;z-index:10;backdrop-filter:blur(8px);
+  }
+  .brand{font-size:15px;font-weight:700;letter-spacing:.13em;color:#eaf1f8;white-space:nowrap}
+  .brand .hex{color:var(--cyan)}
+  .brand .sub{color:var(--dim);font-weight:400;letter-spacing:.2em;font-size:10.5px;margin-left:9px}
+  .livedot{width:8px;height:8px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 9px var(--green);animation:pulse 2s infinite}
+  @keyframes pulse{50%{opacity:.32}}
+  .stats{display:flex;gap:7px;margin-left:auto;flex-wrap:wrap}
+  .stat{border:1px solid var(--line);border-radius:6px;padding:4px 10px;color:var(--dim);
+    font-size:11px;letter-spacing:.06em}
+  .stat b{color:var(--text);margin-right:5px;font-size:13px}
+  .stat.active b{color:var(--amber)} .stat.done b{color:var(--green)}
+  .stat.hold b{color:var(--violet)} .stat.fail b{color:var(--red)}
+  #clock{color:var(--faint);font-size:11px;letter-spacing:.1em;white-space:nowrap}
+
+  main{max-width:1320px;margin:0 auto;padding:22px}
+
+  /* ---- big token/cost counter ---- */
+  #usagebar{display:flex;align-items:stretch;gap:0;border:1px solid var(--line2);border-radius:14px;
+    background:linear-gradient(180deg,rgba(94,234,212,.05),rgba(94,234,212,.01));
+    padding:16px 26px;margin-bottom:22px;overflow:hidden;position:relative}
+  #usagebar::before{content:"";position:absolute;inset:0;background:
+    radial-gradient(ellipse 60% 120% at 12% 50%,rgba(94,234,212,.10),transparent),
+    radial-gradient(ellipse 60% 120% at 78% 50%,rgba(74,222,128,.08),transparent);pointer-events:none}
+  .ublock{display:flex;flex-direction:column;justify-content:center;gap:4px;z-index:1;flex:1}
+  .usep{width:1px;background:var(--line2);margin:0 26px;z-index:1}
+  .unum{font-size:34px;font-weight:700;letter-spacing:.01em;color:var(--cyan);line-height:1;
+    text-shadow:0 0 22px rgba(94,234,212,.35);font-variant-numeric:tabular-nums}
+  .unum.cost{color:var(--green);text-shadow:0 0 22px rgba(74,222,128,.32)}
+  .ulbl{font-size:10px;letter-spacing:.16em;color:var(--dim);font-weight:600}
+  .ulbl .udim{color:var(--faint);font-weight:400}
+  .ufree{color:var(--green)}
+  .uassume{display:block;color:var(--faint);font-size:9px;letter-spacing:.04em;font-weight:400;margin-top:2px}
+  @media(max-width:680px){#usagebar{flex-direction:column}.usep{width:auto;height:1px;margin:14px 0}.unum{font-size:26px}}
+
+  /* ---- slop check ---- */
+  .slopres{display:none;margin:10px 15px 0;padding:9px 11px;background:#06090e;border:1px solid var(--line);
+    border-radius:8px;font-size:11px;line-height:1.5;color:var(--dim)}
+  .slopchip{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.08em;border:1px solid;
+    border-radius:5px;padding:2px 7px;margin-right:7px;vertical-align:middle}
+  #launchpad{display:grid;grid-template-columns:minmax(280px,1.25fr) minmax(300px,1fr);
+    gap:16px;margin-bottom:26px}
+  @media(max-width:880px){#launchpad{grid-template-columns:1fr}}
+  #dropzone{
+    border:1.5px dashed var(--line2);border-radius:13px;min-height:140px;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+    color:var(--dim);transition:.18s;background:var(--panel2);text-align:center;padding:18px}
+  #dropzone:hover{border-color:var(--cyan);color:var(--text)}
+  #dropzone.drag{border-color:var(--cyan);background:rgba(94,234,212,.06);
+    box-shadow:0 0 30px rgba(94,234,212,.12) inset;color:var(--cyan)}
+  #dropzone .big{font-size:15px;letter-spacing:.05em}
+  #dropzone .hint{font-size:11px;color:var(--faint)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:16px}
+  .panel h3{font-size:10.5px;letter-spacing:.18em;color:var(--dim);font-weight:600;margin-bottom:12px}
+  .optrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .optrow label{color:var(--dim);font-size:10.5px;letter-spacing:.06em}
+  select,input[type=number]{
+    background:var(--panel2);border:1px solid var(--line2);color:var(--text);
+    font-family:var(--mono);font-size:12px;border-radius:6px;padding:5px 8px;outline:none}
+  select:focus,input:focus,textarea:focus{border-color:var(--cyan)}
+  #queue{display:flex;flex-direction:column;gap:6px;max-height:150px;overflow-y:auto}
+  .qitem{display:flex;align-items:center;gap:10px;border:1px solid var(--line);
+    border-radius:8px;padding:7px 10px;background:var(--panel2)}
+  .qitem .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+  .qitem .x{cursor:pointer;color:var(--faint);padding:0 4px}
+  .qitem .x:hover{color:var(--red)}
+  .btn{background:transparent;border:1px solid var(--line2);color:var(--text);cursor:pointer;
+    font-size:11.5px;letter-spacing:.05em;border-radius:7px;padding:6px 13px;transition:.15s;white-space:nowrap}
+  .btn:hover{border-color:var(--cyan);color:var(--cyan)}
+  .btn.primary{border-color:var(--green);color:var(--green)}
+  .btn.primary:hover{background:rgba(74,222,128,.1)}
+  .btn.danger{border-color:#7a3a3a;color:var(--red)}
+  .btn.danger:hover{background:rgba(248,113,113,.08)}
+  .btn.blue{border-color:var(--blue);color:var(--blue)}
+  .btn.blue:hover{background:rgba(96,165,250,.1)}
+  .btn.violet{border-color:var(--violet);color:var(--violet)}
+  .btn.violet:hover{background:rgba(167,139,250,.1)}
+  .btn:disabled{opacity:.32;cursor:not-allowed}
+  .btn.sm{padding:3px 9px;font-size:10.5px}
+  #queueEmpty{color:var(--faint);font-size:11.5px;padding:6px 2px}
+  .modewarn{font-size:10.5px;color:var(--faint);margin-top:8px;line-height:1.55}
+  .modewarn b{color:var(--amber);font-weight:600}
+
+  #boardHead{display:flex;align-items:baseline;gap:12px;margin-bottom:12px}
+  #boardHead h2{font-size:11.5px;letter-spacing:.2em;color:var(--dim);font-weight:600}
+  #board{display:block}
+  .pushsection{margin-bottom:24px}
+  .pushhead{display:flex;align-items:center;gap:8px;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .pushhead .plabel{font-size:12px;letter-spacing:.16em;color:#eaf1f8;font-weight:700}
+  .pushhead .pcount{color:var(--dim);font-size:11px;letter-spacing:.04em}
+  .pushgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(370px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:15px 16px;
+    transition:border-color .2s, transform .1s;display:flex;flex-direction:column;gap:11px;cursor:pointer}
+  .card:hover{border-color:var(--line2);transform:translateY(-1px)}
+  .card.running{border-color:rgba(251,191,36,.32)}
+  .card .top{display:flex;align-items:flex-start;gap:10px}
+  .card .title{font-size:13.5px;color:#eaf1f8;line-height:1.35;flex:1;word-break:break-word}
+  .chip{font-size:10px;letter-spacing:.09em;border-radius:5px;padding:3px 8px;white-space:nowrap;
+    border:1px solid;font-weight:700}
+  .chip.RUNNING{color:var(--amber);border-color:rgba(251,191,36,.5);animation:pulse 2s infinite}
+  .chip.DONE{color:var(--green);border-color:rgba(74,222,128,.5)}
+  .chip.HOLD{color:var(--violet);border-color:rgba(167,139,250,.5)}
+  .chip.REVISE_EXHAUSTED,.chip.PAGE_LIMIT_EXCEEDED{color:var(--orange);border-color:rgba(251,146,60,.5)}
+  .chip.ERROR,.chip.ABORTED,.chip.INTERRUPTED{color:var(--red);border-color:rgba(248,113,113,.5)}
+  .chip.PRD_REVIEW{color:var(--cyan);border-color:rgba(94,234,212,.5)}
+
+  .tracker{display:flex;align-items:center;gap:0}
+  .stage{display:flex;flex-direction:column;align-items:center;gap:5px;flex:0 0 auto}
+  .dot{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--faint);background:transparent;transition:.2s}
+  .dot.done{background:var(--green);border-color:var(--green)}
+  .dot.active{background:var(--amber);border-color:var(--amber);box-shadow:0 0 9px rgba(251,191,36,.7);animation:pulse 1.4s infinite}
+  .dot.fail{background:var(--red);border-color:var(--red)}
+  .dot.holdc{background:var(--violet);border-color:var(--violet)}
+  .stage .lbl{font-size:8.5px;letter-spacing:.08em;color:var(--faint)}
+  .stage.on .lbl{color:var(--dim)}
+  .connector{flex:1;height:1.5px;background:var(--faint);margin:0 3px 14px;min-width:13px;opacity:.5}
+  .connector.done{background:var(--green);opacity:.8}
+
+  .meta{display:flex;gap:13px;color:var(--dim);font-size:11px;flex-wrap:wrap;align-items:center}
+  .meta .verds{display:flex;gap:4px}
+  .vbadge{width:18px;height:18px;border-radius:4px;display:inline-flex;align-items:center;
+    justify-content:center;font-size:10px;font-weight:700;border:1px solid}
+  .vbadge.PASS{color:var(--green);border-color:rgba(74,222,128,.5)}
+  .vbadge.REVISE{color:var(--orange);border-color:rgba(251,146,60,.5)}
+  .vbadge.HOLD{color:var(--violet);border-color:rgba(167,139,250,.5)}
+  .tag{font-size:9.5px;border:1px solid var(--line2);color:var(--faint);border-radius:4px;padding:2px 6px;letter-spacing:.07em}
+  .reason{font-size:11px;color:var(--dim);line-height:1.45;border-left:2px solid var(--line2);padding-left:9px}
+  #empty{color:var(--faint);padding:46px 0;text-align:center;letter-spacing:.07em}
+
+  /* ---- run console ---- */
+  #console{position:fixed;inset:0;background:rgba(3,6,10,.82);z-index:50;display:none;
+    align-items:stretch;justify-content:center;backdrop-filter:blur(4px)}
+  #console.open{display:flex}
+  #consolePanel{background:var(--panel);border:1px solid var(--line2);margin:2.5vh auto;
+    border-radius:14px;width:min(1240px,96vw);max-height:95vh;display:flex;flex-direction:column;overflow:hidden}
+  .chead{display:flex;align-items:center;gap:14px;padding:13px 18px;border-bottom:1px solid var(--line)}
+  .chead .ctitle{font-size:14px;color:#eaf1f8;font-weight:600}
+  .chead .ctrack{flex:1;max-width:360px}
+  .chead .cclose{cursor:pointer;color:var(--dim);font-size:18px;padding:2px 8px}
+  .chead .cclose:hover{color:var(--red)}
+  .cbody{display:grid;grid-template-columns:1.35fr 1fr;flex:1;min-height:0}
+  @media(max-width:900px){.cbody{grid-template-columns:1fr;overflow-y:auto}}
+  .cleft{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line)}
+  .tabs{display:flex;gap:1px;padding:0 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .tab{padding:9px 12px;cursor:pointer;color:var(--dim);font-size:10.5px;letter-spacing:.09em;
+    border-bottom:2px solid transparent}
+  .tab:hover{color:var(--text)}
+  .tab.sel{color:var(--cyan);border-bottom-color:var(--cyan)}
+  #ctabbody{overflow-y:auto;padding:15px 17px;flex:1;min-height:240px}
+  #ctabbody pre{white-space:pre-wrap;word-break:break-word;font-size:11.5px;line-height:1.62;color:var(--text)}
+  #ctabbody pre .logphase{color:var(--cyan);font-weight:700}
+  #ctabbody pre .logwarn{color:var(--amber)}
+  #ctabbody pre .logerr{color:var(--red)}
+
+  .cright{display:flex;flex-direction:column;min-height:0;background:var(--panel2)}
+  .actionbar{display:flex;flex-wrap:wrap;gap:8px;padding:13px 15px;border-bottom:1px solid var(--line)}
+  .cmdline{margin:0 15px;padding:8px 10px;background:#06090e;border:1px solid var(--line);border-radius:7px;
+    font-size:10.5px;color:var(--cyan);display:none;align-items:center;gap:8px;margin-top:10px;word-break:break-all}
+  .cmdline.show{display:flex}
+  .cmdline code{flex:1;color:var(--cyan)}
+  .cmdline .cp{cursor:pointer;color:var(--dim)}.cmdline .cp:hover{color:var(--text)}
+  #injectBox,#changeBox{display:none;flex-direction:column;gap:7px;padding:12px 15px;border-bottom:1px solid var(--line)}
+  #injectBox.show,#changeBox.show{display:flex}
+  #injectBox textarea,#changeBox textarea{background:#06090e;border:1px solid var(--line2);color:var(--text);
+    font-family:var(--mono);font-size:11.5px;border-radius:7px;padding:8px;resize:vertical;min-height:54px;outline:none}
+  #changeBox textarea{min-height:80px}
+  #changeBox code{color:var(--cyan)}
+  .ihint{font-size:10px;color:var(--faint);line-height:1.5}
+
+  .chatwrap{display:flex;flex-direction:column;flex:1;min-height:0}
+  .chathead{padding:11px 15px 7px;font-size:10px;letter-spacing:.16em;color:var(--dim);display:flex;align-items:center;gap:8px}
+  .chathead .ai{width:6px;height:6px;border-radius:50%;background:var(--blue);box-shadow:0 0 7px var(--blue)}
+  #chatlog{flex:1;overflow-y:auto;padding:8px 15px;display:flex;flex-direction:column;gap:10px}
+  .bub{max-width:88%;padding:9px 12px;border-radius:11px;font-size:12px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+  .bub.user{align-self:flex-end;background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.3);color:#dbeafe}
+  .bub.ai{align-self:flex-start;background:var(--panel3);border:1px solid var(--line2);color:var(--text)}
+  .bub.inject{align-self:flex-end;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.3);color:#ede9fe;font-size:11px}
+  .bub.thinking{align-self:flex-start;color:var(--dim);border:1px dashed var(--line2);background:transparent}
+  .chatempty{color:var(--faint);font-size:11.5px;padding:14px 4px;text-align:center;line-height:1.6}
+  .chatinput{display:flex;gap:8px;padding:11px 15px;border-top:1px solid var(--line);align-items:flex-end}
+  .chatinput textarea{flex:1;background:#06090e;border:1px solid var(--line2);color:var(--text);
+    font-family:var(--mono);font-size:12px;border-radius:9px;padding:9px 11px;resize:none;min-height:40px;max-height:120px;outline:none}
+
+  .toast{position:fixed;bottom:20px;right:20px;z-index:99;display:flex;flex-direction:column;gap:8px}
+  .toast div{background:var(--panel);border:1px solid var(--line2);border-left:3px solid var(--cyan);
+    padding:10px 14px;border-radius:8px;font-size:12px;max-width:380px;animation:slidein .2s;line-height:1.5}
+  .toast div.err{border-left-color:var(--red)}
+  @keyframes slidein{from{transform:translateX(30px);opacity:0}}
+  .spin{display:inline-block;animation:rot 1s linear infinite}@keyframes rot{to{transform:rotate(360deg)}}
+
+  /* ---- venues ---- */
+  .venuebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;font-size:11.5px}
+  .vsummary{font-size:11.5px;color:var(--dim);border-left:2px solid var(--line2);padding-left:9px;margin-bottom:12px;line-height:1.5}
+  .vcard{border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:10px;background:var(--panel2);transition:.15s}
+  .vcard.picked{border-color:rgba(94,234,212,.5);box-shadow:0 0 0 1px rgba(94,234,212,.18)}
+  .vtop{display:flex;align-items:flex-start;gap:9px}
+  .vpick input{width:15px;height:15px;accent-color:var(--cyan);cursor:pointer;margin-top:2px}
+  .vname{font-size:13px;color:#eaf1f8;font-weight:600;line-height:1.4;flex:1}
+  .vtag{font-size:9px;letter-spacing:.06em;border:1px solid var(--line2);color:var(--dim);border-radius:4px;padding:1px 6px;margin-left:4px;vertical-align:middle;font-weight:600;white-space:nowrap}
+  .vtag.tier1{color:#fff;border-color:var(--violet);background:rgba(167,139,250,.22)}
+  .vtag.tier2{color:var(--blue);border-color:var(--blue)}
+  .vtag.tier3{color:var(--dim);border-color:var(--line2)}
+  .vmetrics{display:flex;gap:18px;margin:8px 0 6px 24px;font-size:11px;color:var(--dim)}
+  .vmetrics b{color:var(--text)}
+  .bar{display:inline-block;width:64px;height:6px;border-radius:3px;background:var(--line);vertical-align:middle;overflow:hidden;margin-left:4px}
+  .barfill{display:block;height:100%}
+  .vrow{font-size:11px;color:var(--dim);line-height:1.5;margin:3px 0 0 24px}
+  .vrow .vk{display:inline-block;min-width:96px;color:var(--faint);letter-spacing:.04em}
+  .vrow a{color:var(--cyan)}
+  .vfixes{margin:2px 0 0 96px;padding-left:14px;color:var(--text)}
+  .vfixes li{margin:1px 0}
+  .vnote{color:var(--amber);margin-left:24px}
+
+  /* ---- header calendar button + overlay ---- */
+  #calBtn{border:1px solid var(--line2);color:var(--text);background:transparent;border-radius:7px;
+    padding:5px 12px;cursor:pointer;font-size:11.5px;letter-spacing:.05em}
+  #calBtn:hover{border-color:var(--cyan);color:var(--cyan)}
+  #calBtn b{color:var(--cyan)}
+  #calOverlay{position:fixed;inset:0;background:rgba(3,6,10,.82);z-index:60;display:none;align-items:flex-start;justify-content:center;padding:5vh 16px;backdrop-filter:blur(4px)}
+  #calOverlay.open{display:flex}
+  #calPanel{background:var(--panel);border:1px solid var(--line2);border-radius:14px;width:min(820px,100%);max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+  #calPanel .chead{padding:14px 18px}
+  #calBody{overflow-y:auto;padding:6px 18px 18px}
+  .caldl{display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid var(--line);border-radius:9px;margin-top:9px;background:var(--panel2)}
+  .caldate{text-align:center;min-width:54px}
+  .caldate .d{font-size:18px;color:#eaf1f8;font-weight:700;line-height:1}
+  .caldate .mo{font-size:9px;letter-spacing:.1em;color:var(--cyan)}
+  .caldate .yr{font-size:9px;color:var(--faint)}
+  .calmid{flex:1;min-width:0}
+  .calven{font-size:12.5px;color:#eaf1f8}
+  .calpaper{font-size:10.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .calmeta{font-size:10px;color:var(--faint);margin-top:2px}
+  .calsoon{color:var(--red)!important}
+  .calcount{font-size:10px;border:1px solid var(--line2);border-radius:5px;padding:2px 7px;color:var(--dim)}
+
+  /* ---- batch revise ---- */
+  #batchOverlay,#improveOverlay{position:fixed;inset:0;background:rgba(3,6,10,.82);z-index:60;display:none;align-items:flex-start;justify-content:center;padding:5vh 16px;backdrop-filter:blur(4px)}
+  #batchOverlay.open,#improveOverlay.open{display:flex}
+  #batchPanel,.modalpanel{background:var(--panel);border:1px solid var(--line2);border-radius:14px;width:min(960px,100%);max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+  #improveBody{overflow-y:auto;padding:14px 18px;flex:1;min-height:160px}
+  #improveFoot{padding:12px 18px;border-top:1px solid var(--line);display:flex;align-items:center;gap:12px}
+  .improw{display:flex;gap:11px;align-items:flex-start;padding:9px 4px;border-bottom:1px solid var(--line)}
+  .improw input{width:15px;height:15px;accent-color:var(--green);margin-top:2px;cursor:pointer}
+  .imptitle{color:#eaf1f8;font-size:12.5px;font-weight:600}
+  .impdesc{color:var(--dim);font-size:11.5px;line-height:1.5;margin-top:2px}
+  .impmatching{color:var(--cyan);padding:20px 4px;text-align:center}
+  .imppaper{color:var(--cyan);font-size:11px;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #batchBody{overflow-y:auto;padding:14px 18px;flex:1;min-height:160px}
+  #batchFoot{padding:12px 18px;border-top:1px solid var(--line);display:flex;align-items:center;gap:12px}
+  .btable{width:100%;border-collapse:collapse;font-size:11.5px}
+  .btable th{text-align:left;color:var(--dim);font-weight:600;letter-spacing:.08em;font-size:10px;padding:6px 8px;border-bottom:1px solid var(--line2)}
+  .btable td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--text)}
+  .btable .fname{color:#eaf1f8;word-break:break-all}
+  .btable select{background:var(--panel2);border:1px solid var(--line2);color:var(--text);font-family:var(--mono);font-size:11px;border-radius:6px;padding:4px 6px;max-width:230px;outline:none}
+  .btable select.unassigned{border-color:#7a3a3a;color:var(--red)}
+  .bconf{display:inline-block;min-width:30px;text-align:right}
+  .bconf.hi{color:var(--green)} .bconf.mid{color:var(--amber)} .bconf.lo{color:var(--red)}
+  .breason{color:var(--dim)}
+  .bmatching{color:var(--cyan);padding:20px 4px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <div class="livedot"></div>
+  <div class="brand"><span class="hex">⬢</span> AUTOSCIENCE<span class="sub">MISSION CONTROL</span></div>
+  <div class="stats" id="stats"></div>
+  <button id="calBtn" onclick="openCalendar()">📅 DEADLINES <b id="calCount">0</b></button>
+  <div id="clock"></div>
+</header>
+
+<main>
+  <div id="usagebar">
+    <div class="ublock">
+      <div class="unum" id="uTokens">—</div>
+      <div class="ulbl">TOKENS BURNED <span class="udim">· completed runs</span></div>
+    </div>
+    <div class="usep"></div>
+    <div class="ublock">
+      <div class="unum cost" id="uCost">—</div>
+      <div class="ulbl">≈ COST AT GPT-5.5 LIST PRICE <span class="ufree">· FREE FOR YOU 🎓</span>
+        <span class="uassume" id="uAssume"></span></div>
+    </div>
+  </div>
+  <section id="launchpad">
+    <div id="dropzone">
+      <div class="big">⬆ DROP idea.md FILES HERE</div>
+      <div class="hint">or click to browse — multiple files = multiple parallel runs</div>
+      <input type="file" id="fileInput" multiple accept=".md,.markdown,.txt" hidden>
+    </div>
+    <div class="panel">
+      <h3>LAUNCH BAY</h3>
+      <div class="optrow">
+        <label>ENGINE</label>
+        <select id="modeSel">
+          <option value="real">real codex (gpt-5.5 · xhigh · fast)</option>
+          <option value="mock">mock demo (instant, $0)</option>
+        </select>
+        <label>MAX ITER</label>
+        <input type="number" id="maxIter" value="5" min="1" max="20" style="width:58px">
+      </div>
+      <div id="queue"></div>
+      <div id="queueEmpty">queue empty — drop files to stage launches</div>
+      <div class="optrow" style="margin-top:12px;margin-bottom:0">
+        <button class="btn primary" id="launchAll" disabled>▶ LAUNCH ALL</button>
+        <button class="btn" id="clearQueue" disabled>CLEAR</button>
+      </div>
+      <div class="modewarn">real runs invoke codex for minutes per phase. <b>nothing is ever
+      auto-submitted</b> — output is a PDF + verdict on local disk; you press submit.</div>
+      <div class="optrow" style="margin-top:11px;border-top:1px solid var(--line);padding-top:11px;margin-bottom:0">
+        <button class="btn" style="border-color:var(--blue);color:var(--blue)" onclick="document.getElementById('batchZip').click()">📦 BATCH REVISE (.zip of .md)</button>
+        <span class="ihint" style="flex:1">codex matches each markdown to its thread → review the table → launch all revisions.</span>
+        <input type="file" id="batchZip" accept=".zip" hidden>
+      </div>
+    </div>
+  </section>
+
+  <div id="boardHead"><h2>RUN BOARD</h2></div>
+  <section id="board"></section>
+  <div id="empty" style="display:none">no runs yet — drop an idea file above to launch your first</div>
+</main>
+
+<!-- run console -->
+<div id="console"><div id="consolePanel">
+  <div class="chead">
+    <div class="ctitle" id="cTitle"></div>
+    <div id="cChip"></div>
+    <div class="ctrack" id="cTrack"></div>
+    <div class="cclose" onclick="closeConsole()">✕</div>
+  </div>
+  <div class="cbody">
+    <div class="cleft">
+      <div class="tabs" id="cTabs"></div>
+      <div id="ctabbody"></div>
+    </div>
+    <div class="cright">
+      <div class="actionbar" id="cActions"></div>
+      <div class="cmdline" id="cCmd"><code id="cCmdText"></code><span class="cp" onclick="copyCmd()">⧉ copy</span></div>
+      <div class="slopres" id="slopResult"></div>
+      <div id="injectBox">
+        <textarea id="injectText" placeholder="Answer codex's question or tell the coder thread what to do — e.g. 'use scipy.optimize.nnls instead', or 'the dataset path is data/raw.csv'…"></textarea>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn violet sm" id="injectSend">⮞ SEND TO CODER THREAD</button>
+          <button class="btn sm" onclick="toggleInject(false)">cancel</button>
+          <span class="ihint">resumes the real codex coder session headlessly; its reply lands in the chat.</span>
+        </div>
+      </div>
+      <div id="changeBox">
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="btn sm" onclick="document.getElementById('changeFile').click()">📎 load .md file</button>
+          <span class="ihint">drop changes below or load a markdown file. add a <code>model:</code> line to switch the LLM.</span>
+          <input type="file" id="changeFile" accept=".md,.markdown,.txt" hidden>
+        </div>
+        <textarea id="changeText" placeholder="Describe the changes — e.g. 'add a baseline comparison vs random guessing', 'tighten the abstract', 'rerun with temperature 0', 'model: openai/gpt-4o'. The coder revises the existing paper, then the judge re-checks and recompiles."></textarea>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn primary sm" id="changeSend">📨 SUBMIT CHANGES → REVISE</button>
+          <button class="btn sm" onclick="toggleChange(false)">cancel</button>
+        </div>
+      </div>
+      <div class="chatwrap">
+        <div class="chathead"><span class="ai"></span> CONCIERGE — chat about this run</div>
+        <div id="chatlog"></div>
+        <div class="chatinput">
+          <textarea id="chatText" rows="1" placeholder="Ask about this run… (Enter to send, Shift+Enter for newline)"></textarea>
+          <button class="btn blue" id="chatSend">SEND</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- deadlines calendar -->
+<div id="calOverlay"><div id="calPanel">
+  <div class="chead">
+    <div class="ctitle">📅 Submission deadlines <span id="calCount2" class="calcount"></span></div>
+    <a class="btn sm" href="/calendar.ics" download style="margin-left:auto">⬇ download all .ics</a>
+    <div class="cclose" onclick="closeCalendar()">✕</div>
+  </div>
+  <div id="calBody"></div>
+</div></div>
+
+<!-- improve suggestions -->
+<div id="improveOverlay"><div class="modalpanel">
+  <div class="chead">
+    <div class="ctitle" id="improveTitle">💡 What to improve</div>
+    <div class="cclose" onclick="closeImprove()">✕</div>
+  </div>
+  <div id="improveBody"></div>
+  <div id="improveFoot"></div>
+</div></div>
+
+<!-- batch revise -->
+<div id="batchOverlay"><div id="batchPanel">
+  <div class="chead">
+    <div class="ctitle" id="batchTitle">📦 Batch revise</div>
+    <div class="cclose" onclick="closeBatch()">✕</div>
+  </div>
+  <div id="batchBody"></div>
+  <div id="batchFoot"></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let queue = [], runs = [];
+let con = { id:null, data:null, tab:"LOG", timer:null, sending:false, pending:null };
+// token-counter + slop-check state (hoisted so board/usage rendering never hits a TDZ)
+const PRICE_BLENDED=10.0;   // $/1M tokens — mostly output, minimally input (per Makar)
+const usageCache={}; const usageInflight=new Set();
+const venueState={};  // runId -> {n: venueCount, scouting} so the "adapt for venues" button can appear post-scout
+const SLOP_COLORS={SLOP:"var(--red)",WEAK:"var(--orange)",DECENT:"var(--green)",STRONG:"var(--cyan)","?":"var(--dim)"};
+const slopCache=JSON.parse(localStorage.getItem("autosci_slop")||"{}");
+const SLOP_PROMPT="SLOP CHECK. Assess this finished paper like a tough reviewer: is it AI slop or a genuinely decent paper? Weigh (a) whether the contribution is specific and novel vs generic AI filler, (b) whether every quantitative claim is evidence-backed — the judge actually re-ran repro.sh to verify the numbers, (c) honesty of limitations, (d) whether the writing is substantive vs padded. Give at most 3 sentences, then a FINAL line exactly: SLOP_VERDICT: <SLOP|WEAK|DECENT|STRONG>  (SLOP=AI filler / unverified; WEAK=real but thin; DECENT=solid contribution; STRONG=genuinely good).";
+
+setInterval(()=>{ $("#clock").textContent = new Date().toISOString().replace("T"," ").slice(0,19)+" UTC"; },1000);
+
+/* ---------- drop / queue / launch ---------- */
+const dz=$("#dropzone"), fi=$("#fileInput");
+dz.addEventListener("click",()=>fi.click());
+fi.addEventListener("change",()=>{stageFiles([...fi.files]);fi.value="";});
+["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add("drag");}));
+["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove("drag");}));
+dz.addEventListener("drop",e=>stageFiles([...e.dataTransfer.files]));
+document.addEventListener("dragover",e=>e.preventDefault());
+document.addEventListener("drop",e=>e.preventDefault());
+function stageFiles(files){
+  const ok=files.filter(f=>/\.(md|markdown|txt)$/i.test(f.name)||f.type.startsWith("text"));
+  ok.forEach(f=>{const r=new FileReader();r.onload=()=>{queue.push({name:f.name,content:r.result});renderQueue();};r.readAsText(f);});
+  if(!ok.length&&files.length) toast("no readable .md files in that drop",true);
+}
+function renderQueue(){
+  $("#queue").innerHTML=queue.map((it,i)=>`<div class="qitem"><span class="nm" title="${esc(it.name)}">${esc(it.name)}</span>
+    <button class="btn sm primary" onclick="launchOne(${i})">▶</button><span class="x" onclick="queue.splice(${i},1);renderQueue()">✕</span></div>`).join("");
+  $("#queueEmpty").style.display=queue.length?"none":"block";
+  $("#launchAll").disabled=!queue.length; $("#clearQueue").disabled=!queue.length;
+}
+$("#launchAll").addEventListener("click",async()=>{const items=queue.slice();queue=[];renderQueue();for(const it of items)await postLaunch(it);});
+$("#clearQueue").addEventListener("click",()=>{queue=[];renderQueue();});
+async function launchOne(i){const it=queue.splice(i,1)[0];renderQueue();await postLaunch(it);}
+async function postLaunch(it){
+  try{
+    const r=await fetch("/api/launch",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({filename:it.name,content:it.content,mock:$("#modeSel").value==="mock",max_iterations:parseInt($("#maxIter").value)||5})});
+    const j=await r.json();
+    if(j.ok){toast(`launched: ${j.title}`);poll();} else toast(`launch failed: ${j.error||r.status}`,true);
+  }catch(e){toast(`launch failed: ${e}`,true);}
+}
+
+/* ---------- board ---------- */
+const STAGES=["PLAN","BUILD","JUDGE","COMPILE","DONE"];
+function stageIndex(run){const ph=run.phase||"";if(ph.startsWith("TERMINAL"))return 5;
+  for(let i=STAGES.length-1;i>=0;i--)if(ph.startsWith(STAGES[i]))return i;return -1;}
+function fmtElapsed(s){if(s==null)return"";s=Math.floor(s);const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),x=s%60;return(h?h+"h ":"")+(m?m+"m ":"")+x+"s";}
+function chipFor(run){if(run.status==="running")return`<span class="chip RUNNING">RUNNING</span>`;
+  const t=run.terminal_state||"INTERRUPTED";return`<span class="chip ${esc(t)}">${esc(t)}</span>`;}
+function trackerFor(run){
+  const idx=stageIndex(run),t=run.terminal_state;
+  const fail=["ERROR","ABORTED","REVISE_EXHAUSTED","PAGE_LIMIT_EXCEEDED","INTERRUPTED"];
+  let html=`<div class="tracker">`;
+  STAGES.forEach((st,i)=>{let cls="",on="";
+    if(run.status!=="running"&&t==="DONE"){cls="done";on="on";}
+    else if(run.status!=="running"&&t==="HOLD"&&i<=2){cls=i<2?"done":"holdc";on="on";}
+    else if(run.status!=="running"&&fail.includes(t)){if(i<idx){cls="done";on="on";}else if(i===Math.max(idx,0)&&i<5){cls="fail";on="on";}}
+    else if(i<idx){cls="done";on="on";}
+    else if(i===idx&&run.status==="running"){cls="active";on="on";}
+    html+=`<div class="stage ${on}"><div class="dot ${cls}"></div><div class="lbl">${st}</div></div>`;
+    if(i<STAGES.length-1)html+=`<div class="connector ${i<idx||t==="DONE"?"done":""}"></div>`;});
+  return html+`</div>`;
+}
+function cardFor(run){
+  const verds=(run.verdicts||[]).map(v=>`<span class="vbadge ${esc(v.verdict)}" title="iter${v.iteration}: ${esc(v.verdict)}">${v.verdict[0]}</span>`).join("");
+  const iter=run.iteration?`iter ${run.iteration}/${run.max_iterations}`:"";
+  const phaseTxt=run.status==="running"?esc(run.phase):"";
+  const mock=run.mock===true?`<span class="tag">MOCK</span>`:(run.mock===false?`<span class="tag" style="color:var(--cyan);border-color:rgba(94,234,212,.4)">CODEX</span>`:"");
+  return `<div class="card ${run.status}" onclick="openConsole('${esc(run.id)}')">
+    <div class="top"><div class="title">${esc(run.title)}</div>${chipFor(run)}</div>
+    ${trackerFor(run)}
+    <div class="meta">
+      ${iter?`<span>${iter}</span>`:""}
+      ${verds?`<span class="verds">${verds}</span>`:""}
+      ${run.elapsed_s!=null?`<span>⏱ ${fmtElapsed(run.elapsed_s)}</span>`:""}
+      ${mock}
+      ${phaseTxt?`<span style="color:var(--amber)">▸ ${phaseTxt}</span>`:""}
+      <span class="tag" style="${(run.push||1)>1?'color:var(--blue);border-color:var(--blue)':''}" title="${(run.push||1)>1?'revised '+((run.push||1)-1)+'×':'original submission, not yet revised'}">push ${run.push||1}</span>
+      ${run.has_pdf?`<span style="color:var(--green)">📄 v${run.version||1}</span>`:""}
+      ${slopCache[run.id]&&!slopCache[run.id].pending?`<span class="slopchip" style="color:${SLOP_COLORS[slopCache[run.id].verdict]||'var(--dim)'};border-color:${SLOP_COLORS[slopCache[run.id].verdict]||'var(--dim)'}" title="paper-quality check">🧪 ${esc(slopCache[run.id].verdict)}</span>`:""}
+    </div>
+    ${run.reason&&run.status!=="running"?`<div class="reason">${esc(run.reason.slice(0,200))}</div>`:""}
+  </div>`;
+}
+function renderBoard(){
+  const board=$("#board");
+  if(!runs.length){board.innerHTML="";$("#empty").style.display="block";renderStats();return;}
+  $("#empty").style.display="none";
+  // Separate threads by push: group key = current push (latest kept PDF version); 0 = no PDF yet.
+  const groups={};
+  runs.forEach(r=>{const k=(r.has_pdf&&r.version)?r.version:0;(groups[k]=groups[k]||[]).push(r);});
+  const keys=Object.keys(groups).map(Number).sort((a,b)=>a===0?1:b===0?-1:a-b);
+  board.innerHTML=keys.map(k=>{
+    const items=groups[k];
+    const cards=items.map(cardFor).join("");
+    let head;
+    if(k===0){
+      head=`<div class="pushhead"><span class="plabel" style="color:var(--amber)">▸ IN PROGRESS / NO PDF</span><span class="pcount">${items.length} thread${items.length>1?"s":""}</span></div>`;
+    }else{
+      const sub=k===1?"original submission":"revision "+(k-1);
+      const nVen=items.filter(r=>venueState[r.id]&&venueState[r.id].n>0).length;
+      const scouting=items.some(r=>venueState[r.id]&&venueState[r.id].scouting);
+      const adaptBtn=nVen?`<button class="btn sm" style="border-color:var(--violet);color:var(--violet)" onclick="adaptVenuesAll(${k})" title="write a clean human-written submission copy of each paper for its top venue">🎯 ADAPT FOR VENUES — ALL (${nVen})</button>`:"";
+      head=`<div class="pushhead">
+        <span class="plabel">▸ PUSH ${k}</span>
+        <span class="pcount">${items.length} thread${items.length>1?"s":""} · ${sub}${scouting?' · <span style="color:var(--cyan)">scouting…</span>':""}</span>
+        <span style="flex:1"></span>
+        <button class="btn sm" style="border-color:var(--amber);color:var(--amber)" onclick="improveAllInPush(${k})" title="find improvements for every paper on push ${k}, then pick which to run">💡 FIND IMPROVEMENTS — ALL (${items.length})</button>
+        <button class="btn sm" style="border-color:var(--cyan);color:var(--cyan)" onclick="scoutAllInPush(${k})" title="launch a venue scout for every thread on push ${k}">🔍 SCOUT VENUES — ALL (${items.length})</button>
+        ${adaptBtn}
+        <button class="btn sm" style="border-color:var(--green);color:var(--green)" onclick="window.open('/api/push/${k}/pdfs.zip')" title="download the push-${k} PDF from every thread on push ${k}">⬇ PUSH ${k} PDFs (${items.length})</button>
+      </div>`;
+    }
+    return `<div class="pushsection">${head}<div class="pushgrid">${cards}</div></div>`;
+  }).join("");
+  renderStats();
+}
+function renderStats(){
+  const c={active:0,done:0,hold:0,fail:0};
+  runs.forEach(r=>{if(r.status==="running")c.active++;else if(r.terminal_state==="DONE")c.done++;else if(r.terminal_state==="HOLD")c.hold++;else c.fail++;});
+  $("#stats").innerHTML=`<span class="stat active"><b>${c.active}</b>ACTIVE</span><span class="stat done"><b>${c.done}</b>DONE</span><span class="stat hold"><b>${c.hold}</b>HOLD</span><span class="stat fail"><b>${c.fail}</b>OTHER</span>`;
+}
+async function poll(){try{runs=await(await fetch("/api/runs")).json();renderBoard();updateUsage();updateVenueState();}catch(e){}}
+setInterval(poll,2000); poll();
+
+/* shareable deep links: ?run=<id>&tab=<TAB> opens a run console; ?cal=1 opens the calendar */
+(function(){const p=new URLSearchParams(location.search);
+  const run=p.get("run");
+  if(run){setTimeout(()=>{openConsole(run);const t=p.get("tab");if(t)setTimeout(()=>setTab(t.toUpperCase()),900);},500);}
+  if(p.get("cal"))setTimeout(openCalendar,500);
+})();
+
+/* ---- venue-state cache: know which finished papers have scouted venues (gates the adapt button) ---- */
+async function updateVenueState(){
+  const todo=runs.filter(r=>r.status!=="running"&&(!(r.id in venueState)||venueState[r.id].scouting));
+  if(!todo.length)return;
+  let changed=false;
+  await Promise.all(todo.map(async r=>{
+    try{const d=await(await fetch(`/api/runs/${r.id}/venues`)).json();
+      const next={n:(d.venues||[]).length,scouting:!!d.scouting};
+      if(!venueState[r.id]||venueState[r.id].n!==next.n||venueState[r.id].scouting!==next.scouting){venueState[r.id]=next;changed=true;}
+    }catch(e){if(!(r.id in venueState)){venueState[r.id]={n:0,scouting:false};changed=true;}}
+  }));
+  if(changed)renderBoard();
+}
+
+/* ---- big token + cost counter (client-side; reads each finished run's summary) ---- */
+function fmtTokens(n){if(n>=1e9)return (n/1e9).toFixed(2)+"B";if(n>=1e6)return (n/1e6).toFixed(1)+"M";if(n>=1e3)return (n/1e3).toFixed(1)+"K";return ""+n;}
+async function updateUsage(){
+  const todo=runs.filter(r=>r.status!=="running"&&!(r.id in usageCache)&&!usageInflight.has(r.id));
+  await Promise.all(todo.map(async r=>{
+    usageInflight.add(r.id);
+    try{const t=await(await fetch(`/files/${r.id}/run_summary.md`)).text();
+      const m=t.match(/\*\*Tokens:\*\*\s*([\d,]+)/); usageCache[r.id]=m?parseInt(m[1].replace(/,/g,"")):0;
+    }catch(e){usageCache[r.id]=0;} finally{usageInflight.delete(r.id);}
+  }));
+  const total=Object.values(usageCache).reduce((a,b)=>a+b,0);
+  $("#uTokens").textContent=total?fmtTokens(total):"0";
+  const cost=total/1e6*PRICE_BLENDED;
+  $("#uCost").textContent="$"+cost.toLocaleString(undefined,{maximumFractionDigits:cost<100?2:0});
+  $("#uAssume").textContent=`at $${PRICE_BLENDED.toFixed(0)}/1M tokens (output-heavy) · planner+coder+judge counted · ${runs.filter(r=>r.status==="running").length} run(s) still burning, not yet counted`;
+}
+
+/* ---------- run console ---------- */
+const TABS=["LOG","VENUES","PRD","REVIEWS","BUILD LOG","SUMMARY","IDEA"];
+async function openConsole(id){
+  con.id=id; con.tab="LOG"; con.sending=false; con.pending=null; con.picks=null;
+  $("#console").classList.add("open");
+  toggleInject(false); toggleChange(false);
+  await refreshConsole(true);
+  con.timer=setInterval(()=>refreshConsole(false),2000);
+}
+function closeConsole(){
+  $("#console").classList.remove("open"); con.id=null;
+  if(con.timer){clearInterval(con.timer);con.timer=null;}
+}
+$("#console").addEventListener("click",e=>{if(e.target.id==="console")closeConsole();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&con.id)closeConsole();});
+
+async function refreshConsole(initial){
+  if(!con.id)return;
+  let d; try{d=await(await fetch(`/api/runs/${con.id}`)).json();}catch(e){return;}
+  if(d.error)return;
+  con.data=d;
+  $("#cTitle").textContent=d.title;
+  $("#cChip").innerHTML=chipFor(d);
+  $("#cTrack").innerHTML=trackerFor(d);
+  renderTabs(); renderTabBody();
+  renderActions(d);
+  if(!con.sending) renderChat(d.chat||[]);
+}
+function renderTabs(){
+  $("#cTabs").innerHTML=TABS.map(t=>`<div class="tab ${t===con.tab?"sel":""}" onclick="setTab('${t}')">${t}</div>`).join("");
+}
+function setTab(t){con.tab=t;renderTabBody();}
+function renderTabBody(){
+  const d=con.data||{}; const body=$("#ctabbody");
+  if(con.tab==="VENUES"){ body.innerHTML=renderVenues(d); return; }
+  const atBottom=body.scrollHeight-body.scrollTop-body.clientHeight<60;
+  let c="";
+  if(con.tab==="LOG")c=colorLog(d.log_tail||"(no log yet)");
+  else if(con.tab==="PRD")c=esc(d.prd||"(planner has not written PRD.md yet)");
+  else if(con.tab==="REVIEWS")c=(d.reviews||[]).length?d.reviews.map(r=>`<span class="logphase">══ ${esc(r.name)} ══</span>\n${esc(r.content)}`).join("\n\n"):"(no judge reviews yet)";
+  else if(con.tab==="BUILD LOG")c=esc(d.build_log||"(no BUILD_LOG.md yet)");
+  else if(con.tab==="SUMMARY")c=esc(d.summary||"(written when the run reaches a terminal state)");
+  else if(con.tab==="IDEA")c=esc(d.idea||"");
+  body.innerHTML=`<pre>${c}</pre>`;
+  if(con.tab==="LOG"&&atBottom)body.scrollTop=body.scrollHeight;
+}
+function bar(v,color){v=Math.max(0,Math.min(100,v||0));return `<span class="bar"><span class="barfill" style="width:${v}%;background:${color}"></span></span>`;}
+function archChip(a){const m={archival:"var(--orange)","non-archival":"var(--green)",unknown:"var(--faint)"};return `<span class="vtag" style="color:${m[a]||'var(--faint)'};border-color:${m[a]||'var(--faint)'}">${esc(a||'unknown')}</span>`;}
+function renderVenues(d){
+  const vs=d.venues||[];
+  const picked=new Set(con.picks||d.picked||[]);
+  let head=`<div class="venuebar">`;
+  if(d.scouting) head+=`<span style="color:var(--cyan)"><span class="spin">◍</span> scouting the web for fitting venues… (1-5 min)</span>`;
+  else if(!vs.length) head+=`<span class="chatempty" style="padding:0">No venues yet. Click <b style="color:var(--cyan)">🔍 SCOUT VENUES</b> — a codex agent searches the web for tier 1/2/3 workshops &amp; main tracks that fit this paper.</span>`;
+  else head+=`<span style="color:var(--dim)">${vs.length} venues · ${picked.size} picked</span>
+    <button class="btn sm primary" onclick="saveCalendar()">📅 SAVE PICKS + BUILD .ics</button>
+    <a class="btn sm" href="/files/${esc(d.id)}/deadlines.ics" download>⬇ this paper's .ics</a>`;
+  head+=`</div>`;
+  if(d.venues_summary&&vs.length) head+=`<div class="vsummary">${esc(d.venues_summary)}</div>`;
+  const cards=vs.map((v,i)=>{
+    const on=picked.has(v.name);
+    const ver=v.deadline_verified?`<span style="color:var(--green)">✓ verified</span>`:`<span style="color:var(--amber)" title="confirm on the CFP page">⚠ unverified</span>`;
+    const fixes=(v.fixes||[]).map(f=>`<li>${esc(f)}</li>`).join("");
+    return `<div class="vcard ${on?'picked':''}">
+      <div class="vtop">
+        <label class="vpick"><input type="checkbox" ${on?"checked":""} onchange="togglePick('${esc(v.name).replace(/'/g,"\\'")}')"> </label>
+        <div class="vname">${esc(v.name)} <span class="vtag tier${esc(v.tier)}">TIER ${esc(v.tier)}</span> <span class="vtag">${esc(v.kind)}</span> ${archChip(v.archival)}</div>
+      </div>
+      <div class="vmetrics">
+        <div>fit <b>${v.fit_score}</b>/100 ${bar(v.fit_score,'var(--cyan)')}</div>
+        <div>odds <b>${v.accept_odds}</b>/100 ${bar(v.accept_odds,'var(--green)')}</div>
+      </div>
+      <div class="vrow"><span class="vk">deadline</span> <b>${esc(v.deadline||'unknown')}</b> &nbsp;${ver} ${v.cfp_url?`&nbsp; <a href="${esc(v.cfp_url)}" target="_blank" rel="noopener">CFP ↗</a>`:""}</div>
+      <div class="vrow"><span class="vk">fit</span> ${esc(v.fit_reason||"")}</div>
+      <div class="vrow"><span class="vk">odds</span> ${esc(v.odds_reason||"")}</div>
+      ${fixes?`<div class="vrow"><span class="vk">to improve odds</span><ul class="vfixes">${fixes}</ul></div>`:""}
+      ${v.notes?`<div class="vrow vnote">${esc(v.notes)}</div>`:""}
+      <div class="vrow" style="margin-top:6px">
+        <button class="btn sm" style="border-color:var(--blue);color:var(--blue)" onclick="prepareForVenue('${esc(d.id)}',${i})" title="produce a human-written, artifact-free submission copy formatted for this venue">📝 PREPARE SUBMISSION</button>
+        <span id="prep-${i}" style="margin-left:8px"></span>
+      </div>
+    </div>`;
+  }).join("");
+  return head+cards;
+}
+function vslug(name){return (name||"venue").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40)||"venue";}
+function prepareGuidance(v, slug){
+  return `PREPARE A SUBMISSION-READY, HUMAN-WRITTEN version of this paper for the venue "${v.name}" (${v.cfp_url||v.url||""}).\n`+
+    `1. Fetch that venue's author guidelines / formatting / page limit / template.\n`+
+    `2. Write workspace/submissions/${slug}.tex reformatting THIS paper to that venue (its style, page limit, section conventions). Do NOT modify paper_draft.tex.\n`+
+    `3. Compile it to workspace/submissions/${slug}.pdf.\n`+
+    `4. Write workspace/submissions/${slug}.notes.md with the venue's key requirements and what you changed.\n`+
+    `CRITICAL: it must read as written by a HUMAN author for a real submission. Remove ALL pipeline/AI artifacts — no "autoscience", no "literature scan on <date>", no "we did NOT find ..." mechanical sentences, no mention of any automated process, pipeline, agent, or judge. Natural academic prose only. Keep every real result and number exactly (they are verified). This is a PARALLEL submission copy, NOT a replacement for paper_draft.tex.`;
+}
+async function prepareForVenue(runId, idx){
+  const v=((con.data&&con.data.venues)||[])[idx]; if(!v)return;
+  if(con.data.status==="running"){toast("wait until this run finishes — the coder thread is busy",true);return;}
+  const slug=vslug(v.name);
+  try{
+    const j=await(await fetch(`/api/runs/${runId}/inject`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role:"coder",guidance:prepareGuidance(v,slug)})})).json();
+    if(j.ok){toast(`preparing "${v.name}" submission — human-written, no artifacts (coder agent, a few min)`);pollPrepared(runId,slug,idx,0);}
+    else toast(`prepare failed: ${j.error||"needs a finished coder thread"}`,true);
+  }catch(e){toast(`prepare failed: ${e}`,true);}
+}
+async function adaptVenuesAll(version){
+  const targets=runs.filter(r=>r.has_pdf&&r.version===version&&venueState[r.id]&&venueState[r.id].n>0);
+  if(!targets.length){toast("no scouted venues on this push yet — scout first",true);return;}
+  if(!confirm(`Adapt all ${targets.length} paper(s) on push ${version} to their TOP venue?\nEach spawns the coder to write a clean, human-written submission copy (no artifacts) — a few min each.`))return;
+  let n=0;
+  for(const r of targets){
+    try{
+      const d=await(await fetch(`/api/runs/${r.id}/venues`)).json();
+      const vs=(d.venues||[]).slice().sort((a,b)=>(b.fit_score||0)-(a.fit_score||0));
+      if(!vs.length)continue;
+      const v=vs[0], slug=vslug(v.name);
+      const j=await(await fetch(`/api/runs/${r.id}/inject`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role:"coder",guidance:prepareGuidance(v,slug)})})).json();
+      if(j.ok)n++;
+    }catch(e){}
+  }
+  toast(`adapting ${n}/${targets.length} paper(s) to their top venue → each workspace/submissions/`);
+}
+function pollPrepared(runId,slug,idx,tries){
+  const el=document.getElementById(`prep-${idx}`);
+  if(el)el.innerHTML=`<span class="spin">◍</span> preparing…`;
+  const notes=`/files/${runId}/workspace/submissions/${slug}.notes.md`;
+  const pdf=`/files/${runId}/workspace/submissions/${slug}.pdf`;
+  const tick=async()=>{
+    let done=false;
+    try{const r=await fetch(notes); done=r.ok;}catch(e){}
+    const e2=document.getElementById(`prep-${idx}`);
+    if(done){ if(e2)e2.innerHTML=`<a class="btn sm primary" href="${pdf}" download>📥 DOWNLOAD</a> <a class="btn sm" href="${notes}" target="_blank">venue reqs</a>`; return; }
+    if(tries++<45) setTimeout(tick,8000);
+    else if(e2)e2.innerHTML=`<span style="color:var(--amber)">still working — check the workspace via 🗂 FINDER</span>`;
+  };
+  setTimeout(tick,8000);
+}
+function togglePick(name){
+  if(!con.picks) con.picks=new Set((con.data&&con.data.picked)||[]);
+  if(con.picks.has(name))con.picks.delete(name); else con.picks.add(name);
+  renderTabBody();
+}
+async function saveCalendar(){
+  const picked=[...(con.picks||new Set((con.data&&con.data.picked)||[]))];
+  const j=await(await fetch(`/api/runs/${con.id}/picks`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({picked})}).catch(e=>({json:()=>({error:e})}))).json();
+  if(j.error){toast(`save failed: ${j.error}`,true);return;}
+  toast(`saved ${picked.length} picks — .ics rebuilt`);
+  if(picked.length) window.open(`/files/${con.id}/deadlines.ics`);
+  refreshCalBadge();
+}
+function colorLog(t){return esc(t)
+  .replace(/^(\[.*?\] PHASE .*)$/gm,`<span class="logphase">$1</span>`)
+  .replace(/^(\[.*?\] WARN .*)$/gm,`<span class="logwarn">$1</span>`)
+  .replace(/^(\[.*?\] ERROR .*)$/gm,`<span class="logerr">$1</span>`);}
+
+function renderActions(d){
+  const running=d.status==="running";
+  const hasSess=d.has_coder_session;
+  const versions=d.pdf_versions||[];
+  let pdf=versions.map(v=>{
+    const lbl=`v${v.version}`+(v.version===1?" · orig":` · rev ${v.version-1}`);
+    if(v.retained&&v.url) return `<button class="btn primary sm" onclick="window.open('${esc(v.url)}')" title="${esc(v.kind)} — ${v.pages||'?'} pages">📄 ${lbl}</button>`;
+    return `<button class="btn sm" disabled title="overwritten before versioning existed">📄 ${lbl} ✕</button>`;
+  }).join("");
+  if(!pdf&&d.has_pdf&&d.pdf_url) pdf=`<button class="btn primary sm" onclick="window.open('${esc(d.pdf_url)}')">📄 PDF</button>`;
+  const finder=`<button class="btn sm" onclick="revealFinder('${esc(d.id)}')" title="open this run's folder in Finder">🗂 FINDER</button>`;
+  const canScout=d.has_paper||(d.prd&&d.prd.length>20);
+  const scoutLabel=d.scouting?'<span class="spin">◍</span> SCOUTING…':((d.venues&&d.venues.length)?'🔍 RE-SCOUT VENUES':'🔍 SCOUT VENUES');
+  const canSubmit=!running&&d.has_paper&&!d.has_pdf;
+  const submitBtn=canSubmit?`<button class="btn primary sm" onclick="submitAnyway('${esc(d.id)}')" title="compile the current draft into a submittable PDF">✅ SUBMIT ANYWAY</button>`:"";
+  const changeBtn=(!running&&(d.has_paper||(d.prd&&d.prd.length>20)))?`<button class="btn sm" style="border-color:var(--blue);color:var(--blue)" onclick="toggleChange()" title="submit a follow-up .md to revise this paper">📨 SUBMIT CHANGES</button>`:"";
+  const sc=slopCache[d.id];
+  let slopLabel="🧪 SLOP CHECK", slopCol="var(--violet)";
+  if(sc){slopCol=SLOP_COLORS[sc.verdict]||"var(--violet)";slopLabel=sc.pending?'<span class="spin">◍</span> assessing':("🧪 "+esc(sc.verdict)+" ⟳");}
+  const slopBtn=(!running&&(d.has_pdf||d.has_paper))?`<button class="btn sm" style="border-color:${slopCol};color:${slopCol}" onclick="runSlopCheck('${esc(d.id)}')" title="is this AI slop or a genuinely decent paper?">${slopLabel}</button>`:"";
+  const improveBtn=(!running&&(d.has_pdf||d.has_paper))?`<button class="btn sm" style="border-color:var(--amber);color:var(--amber)" onclick="runImprove('${esc(d.id)}')" title="what should we add or fix? get a table of improvements to run">💡 IMPROVE</button>`:"";
+  $("#cActions").innerHTML=`
+    <button class="btn blue sm" onclick="openTerminal()">⌥ OPEN IN TERMINAL</button>
+    <button class="btn violet sm" ${hasSess?"":"disabled title='no resumable codex thread yet'"} onclick="toggleInject()">⮞ INJECT GUIDANCE</button>
+    <button class="btn sm" style="border-color:var(--cyan);color:var(--cyan)" ${canScout&&!d.scouting?"":"disabled"} onclick="scoutVenues()">${scoutLabel}</button>
+    ${slopBtn}
+    ${improveBtn}
+    ${changeBtn}
+    ${submitBtn}
+    ${pdf}
+    ${finder}
+    ${running?`<button class="btn danger sm" onclick="abortRun('${esc(d.id)}')">■ ABORT</button>`:`<button class="btn danger sm" onclick="deleteRun('${esc(d.id)}')">🗑 DELETE</button>`}`;
+  renderSlop(d);
+}
+async function revealFinder(id){
+  const j=await(await fetch(`/api/runs/${id}/reveal`,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();
+  toast(j.ok?"opened in Finder":`Finder failed: ${j.error||""}`,!j.ok);
+}
+
+/* ---- improve: concierge proposes a table of fixes (single paper or a whole push) ---- */
+let improve={suggestions:[],scanning:false};  // each: {runId, runTitle, title, desc, checked}
+const IMPROVE_PROMPT="IMPROVEMENT SCAN. As a tough reviewer/advisor for THIS finished paper, list the concrete changes that would most improve its quality and acceptance odds. Consider: adding cheaper or extra models to strengthen results, an ablation or baseline, rephrasing overclaimed or awkward parts, a stronger figure/table, tightening the abstract, and neutralizing the most likely rejection reason. Give 4-8 items. Output ONLY lines, nothing else, each EXACTLY in this format:\nIMPROVE: <short title> :: <one concrete sentence of what to do>";
+function parseImprove(reply, runId, runTitle){
+  const out=[];
+  (reply||"").split("\n").forEach(line=>{const m=line.match(/IMPROVE:\s*(.+?)\s*::\s*(.+)/i);if(m)out.push({runId,runTitle,title:m[1].trim(),desc:m[2].trim(),checked:true});});
+  return out;
+}
+async function runImprove(id){
+  const run=runs.find(r=>r.id===id)||{title:id};
+  improve={suggestions:[],scanning:false};
+  $("#improveOverlay").classList.add("open");
+  $("#improveTitle").textContent="💡 What to improve";
+  $("#improveBody").innerHTML=`<div class="impmatching"><span class="spin">◍</span> the concierge is reviewing the paper… (~30s)</div>`;
+  $("#improveFoot").innerHTML="";
+  try{
+    const j=await(await fetch(`/api/runs/${id}/chat`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:IMPROVE_PROMPT})})).json();
+    improve.suggestions=parseImprove(j.reply,id,run.title); renderImprove();
+  }catch(e){$("#improveBody").innerHTML=`<div class="impmatching" style="color:var(--red)">failed: ${esc(""+e)}</div>`;}
+}
+async function improveAllInPush(version){
+  const targets=runs.filter(r=>r.has_pdf&&r.version===version);
+  if(!targets.length){toast("no finished papers on this push",true);return;}
+  if(!confirm(`Find improvements for ALL ${targets.length} paper(s) on push ${version}?\nSpawns ${targets.length} concierge agents (~30s each).`))return;
+  improve={suggestions:[],scanning:true};
+  $("#improveOverlay").classList.add("open");
+  $("#improveTitle").textContent=`💡 Improvements — push ${version}`;
+  $("#improveFoot").innerHTML="";
+  let done=0;
+  const prog=()=>{ if(improve.scanning) $("#improveBody").innerHTML=`<div class="impmatching"><span class="spin">◍</span> scanning ${done}/${targets.length} papers for improvements…</div>`; };
+  prog();
+  await Promise.all(targets.map(async r=>{
+    try{const j=await(await fetch(`/api/runs/${r.id}/chat`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:IMPROVE_PROMPT})})).json();
+      improve.suggestions.push(...parseImprove(j.reply,r.id,r.title));
+    }catch(e){}
+    done++; prog();
+  }));
+  improve.scanning=false; renderImprove();
+}
+function renderImprove(){
+  const s=improve.suggestions;
+  if(!s.length){$("#improveBody").innerHTML=`<div class="impmatching">No specific improvements parsed — the papers may already be solid, or try again.</div>`;$("#improveFoot").innerHTML=`<button class="btn" onclick="closeImprove()">close</button>`;return;}
+  const multi=new Set(s.map(x=>x.runId)).size>1;
+  s.sort((a,b)=>(a.runTitle||"").localeCompare(b.runTitle||""));
+  const rows=s.map((x,i)=>`<tr>
+    <td><input type="checkbox" id="imp-${i}" ${x.checked?"checked":""} onchange="improve.suggestions[${i}].checked=this.checked;updateImproveFoot()"></td>
+    ${multi?`<td class="imppaper" title="${esc(x.runTitle||x.runId)}">${esc(x.runTitle||x.runId)}</td>`:""}
+    <td class="imptitle">${esc(x.title)}</td>
+    <td class="impdesc">${esc(x.desc)}</td></tr>`).join("");
+  $("#improveBody").innerHTML=`<table class="btable"><thead><tr><th></th>${multi?"<th>PAPER</th>":""}<th>IMPROVEMENT</th><th>WHAT TO DO</th></tr></thead><tbody>${rows}</tbody></table>`;
+  updateImproveFoot();
+}
+function updateImproveFoot(){
+  const picked=improve.suggestions.filter(x=>x.checked);
+  const papers=new Set(picked.map(x=>x.runId)).size;
+  $("#improveFoot").innerHTML=`<button class="btn primary" ${picked.length?"":"disabled"} onclick="runImproveSelected()">🚀 RUN SELECTED (${picked.length}) → REVISE${papers>1?" "+papers+" PAPERS":""}</button><button class="btn" onclick="closeImprove()">cancel</button><span class="ihint">each paper's selected items become one Submit-Changes revision (a new push).</span>`;
+}
+function closeImprove(){$("#improveOverlay").classList.remove("open");}
+$("#improveOverlay").addEventListener("click",e=>{if(e.target.id==="improveOverlay")closeImprove();});
+async function runImproveSelected(){
+  const picked=improve.suggestions.filter(x=>x.checked);
+  if(!picked.length)return;
+  const byRun={}; picked.forEach(x=>{(byRun[x.runId]=byRun[x.runId]||[]).push(x);});
+  let n=0;
+  for(const runId in byRun){
+    const content="Apply these reviewer-requested improvements to the paper, keeping every result honest and reproducible:\n\n"+byRun[runId].map(x=>`- ${x.title}: ${x.desc}`).join("\n");
+    try{const j=await(await fetch(`/api/runs/${runId}/continue`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content})})).json();if(j.ok)n++;}catch(e){}
+  }
+  toast(`launched ${n} revision(s) from selected improvements → new push`);closeImprove();poll();
+}
+
+/* ---- slop check: AI slop or a decent paper? (rides the existing concierge agent) ---- */
+function saveSlop(){localStorage.setItem("autosci_slop",JSON.stringify(slopCache));}
+function renderSlop(d){
+  const el=$("#slopResult"); const s=slopCache[d.id];
+  if(!s){el.style.display="none";el.innerHTML="";return;}
+  el.style.display="block";
+  const col=SLOP_COLORS[s.verdict]||"var(--dim)";
+  const chip=s.pending?`<span class="slopchip" style="color:var(--cyan);border-color:var(--cyan)"><span class="spin">◍</span> ASSESSING</span>`:`<span class="slopchip" style="color:${col};border-color:${col}">${esc(s.verdict)}</span>`;
+  el.innerHTML=chip+esc(s.reason||(s.pending?"the concierge is reading the paper…":""));
+}
+async function runSlopCheck(id){
+  slopCache[id]={verdict:"?",reason:"",pending:true}; saveSlop();
+  if(con.id===id&&con.data){renderActions(con.data);}
+  renderBoard(); toast("assessing paper quality… (~30s)");
+  try{
+    const j=await(await fetch(`/api/runs/${id}/chat`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:SLOP_PROMPT})})).json();
+    const reply=j.reply||"";
+    const m=reply.match(/SLOP_VERDICT:\s*(SLOP|WEAK|DECENT|STRONG)/i);
+    const verdict=m?m[1].toUpperCase():"?";
+    const reason=reply.replace(/SLOP_VERDICT:.*/is,"").trim().slice(0,400);
+    slopCache[id]={verdict,reason,ts:Date.now()}; saveSlop();
+    if(con.id===id&&con.data){renderActions(con.data);}
+    renderBoard(); toast(`paper quality: ${verdict}`);
+  }catch(e){delete slopCache[id];saveSlop();toast(`slop check failed: ${e}`,true);if(con.id===id&&con.data)renderActions(con.data);}
+}
+function toggleChange(force){
+  const box=$("#changeBox");
+  const show=force===undefined?!box.classList.contains("show"):force;
+  box.classList.toggle("show",show);
+  if(show){toggleInject(false);setTimeout(()=>$("#changeText").focus(),30);}
+}
+function wireChangeFile(){
+  const fi=$("#changeFile");
+  if(fi && !fi._wired){fi._wired=true;
+    fi.addEventListener("change",()=>{const f=fi.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$("#changeText").value=r.result;toast(`loaded ${f.name}`);};r.readAsText(f);fi.value="";});
+  }
+}
+async function sendChange(){
+  const t=$("#changeText").value.trim();
+  if(!t){toast("describe the changes or load an .md first",true);return;}
+  $("#changeSend").disabled=true;
+  try{
+    const j=await(await fetch(`/api/runs/${con.id}/continue`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content:t})})).json();
+    if(j.ok){toast(j.note||"revising…");$("#changeText").value="";toggleChange(false);refreshConsole(false);poll();}
+    else toast(`submit changes failed: ${j.error||""}`,true);
+  }catch(e){toast(`submit changes failed: ${e}`,true);}
+  $("#changeSend").disabled=false;
+}
+async function submitAnyway(id){
+  if(!confirm("Compile the current draft into a submittable PDF and mark this run DONE?\n\n(Compiles the draft as-is. Holds are safe — Criterion 1 already passed.)"))return;
+  toast("compiling held draft…");
+  const j=await(await fetch(`/api/runs/${id}/submit-anyway`,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();
+  if(j.ok){toast(`compiled: ${j.pages} pages → PDF ready`);refreshConsole(false);poll();window.open(j.pdf);}
+  else toast(`submit-anyway failed: ${j.error||""}`,true);
+}
+async function scoutVenues(){
+  const j=await(await fetch(`/api/runs/${con.id}/scout`,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();
+  if(j.ok){toast(j.note||"scout started");venueState[con.id]={n:(venueState[con.id]&&venueState[con.id].n)||0,scouting:true};con.tab="VENUES";refreshConsole(false);}
+  else toast(`scout: ${j.error||"failed"}`,true);
+}
+async function scoutAllInPush(version){
+  const targets=runs.filter(r=>r.has_pdf&&r.version===version);
+  if(!targets.length){toast("no finished papers on this push",true);return;}
+  if(!confirm(`Launch a venue scout for ALL ${targets.length} paper(s) on push ${version}?\nEach spawns a codex web-browsing agent (~1-5 min each).`))return;
+  let n=0;
+  for(const r of targets){
+    try{const j=await(await fetch(`/api/runs/${r.id}/scout`,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();if(j.ok){n++;venueState[r.id]={n:(venueState[r.id]&&venueState[r.id].n)||0,scouting:true};}}catch(e){}
+  }
+  renderBoard();
+  toast(`scouting venues for ${n}/${targets.length} paper(s) — the 🎯 ADAPT button appears as venues arrive`);
+}
+async function deleteRun(id){
+  if(!confirm("Delete this run and all its artifacts from disk? This cannot be undone."))return;
+  const j=await(await fetch(`/api/runs/${id}/delete`,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();
+  if(j.ok){toast("run deleted");closeConsole();poll();}
+  else toast(`delete failed: ${j.error||""}`,true);
+}
+
+/* ---- terminal handoff ---- */
+async function openTerminal(){
+  toast("opening Terminal.app…");
+  try{
+    const r=await fetch(`/api/runs/${con.id}/open-terminal`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role:"coder"})});
+    const j=await r.json();
+    $("#cCmdText").textContent=j.command||"";
+    $("#cCmd").classList.add("show");
+    if(j.opened) toast(`Terminal opened — ${j.description||""}`);
+    else toast(`couldn't auto-open Terminal: ${j.error||"unknown"} — copy the command`,true);
+  }catch(e){toast(`terminal error: ${e}`,true);}
+}
+function copyCmd(){const t=$("#cCmdText").textContent;navigator.clipboard.writeText(t).then(()=>toast("command copied"));}
+
+/* ---- inject ---- */
+function toggleInject(force){
+  const box=$("#injectBox");
+  const show=force===undefined?!box.classList.contains("show"):force;
+  box.classList.toggle("show",show);
+  if(show)setTimeout(()=>$("#injectText").focus(),30);
+}
+$("#changeSend").addEventListener("click",sendChange);
+wireChangeFile();
+$("#injectSend").addEventListener("click",async()=>{
+  const g=$("#injectText").value.trim(); if(!g){toast("type some guidance first",true);return;}
+  $("#injectSend").disabled=true;
+  try{
+    const r=await fetch(`/api/runs/${con.id}/inject`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role:"coder",guidance:g})});
+    const j=await r.json();
+    if(j.ok){toast("injected into coder thread — reply will appear in chat");$("#injectText").value="";toggleInject(false);}
+    else toast(`inject failed: ${j.error||"unknown"}`,true);
+  }catch(e){toast(`inject failed: ${e}`,true);}
+  $("#injectSend").disabled=false;
+});
+
+/* ---- chat ---- */
+function renderChat(msgs){
+  const log=$("#chatlog");
+  const atBottom=log.scrollHeight-log.scrollTop-log.clientHeight<80;
+  let html="";
+  if(!msgs.length&&!con.pending){
+    html=`<div class="chatempty">Ask the concierge anything about this run —<br>"why did the judge reject it?", "is it stuck?", "what should I fix?"<br>It reads the PRD, logs, reviews and paper.</div>`;
+  }
+  msgs.forEach(m=>{
+    const inj=(m.text||"").startsWith("[inject")||(m.text||"").startsWith("[coder thread");
+    const cls=m.role==="user"?(inj?"inject":"user"):(inj?"inject":"ai");
+    html+=`<div class="bub ${cls}">${esc(m.text)}</div>`;
+  });
+  if(con.pending){
+    html+=`<div class="bub user">${esc(con.pending)}</div>`;
+    html+=`<div class="bub thinking"><span class="spin">◍</span> concierge is reading the run…</div>`;
+  }
+  log.innerHTML=html;
+  if(atBottom||con.pending)log.scrollTop=log.scrollHeight;
+}
+async function sendChat(){
+  const t=$("#chatText").value.trim(); if(!t||con.sending)return;
+  con.sending=true; con.pending=t; $("#chatText").value=""; $("#chatSend").disabled=true;
+  renderChat((con.data&&con.data.chat)||[]);
+  try{
+    await fetch(`/api/runs/${con.id}/chat`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:t})});
+  }catch(e){toast(`chat failed: ${e}`,true);}
+  con.sending=false; con.pending=null; $("#chatSend").disabled=false;
+  await refreshConsole(false);
+}
+$("#chatSend").addEventListener("click",sendChat);
+$("#chatText").addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}
+});
+$("#chatText").addEventListener("input",e=>{e.target.style.height="auto";e.target.style.height=Math.min(120,e.target.scrollHeight)+"px";});
+
+async function abortRun(id){
+  if(!confirm("Write ABORT sentinel? The orchestrator tears this run down cleanly."))return;
+  const j=await(await fetch(`/api/runs/${id}/abort`,{method:"POST"})).json();
+  toast(j.ok?"ABORT sentinel written":"abort failed",!j.ok);
+}
+
+/* ---- deadlines calendar ---- */
+const MON=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+async function refreshCalBadge(){
+  try{const j=await(await fetch("/api/calendar")).json();
+    const n=(j.items||[]).length;$("#calCount").textContent=n;
+  }catch(e){}
+}
+setInterval(refreshCalBadge,5000); refreshCalBadge();
+async function openCalendar(){
+  $("#calOverlay").classList.add("open");
+  let j; try{j=await(await fetch("/api/calendar")).json();}catch(e){j={items:[]};}
+  const items=j.items||[];
+  $("#calCount2").textContent=`${items.length} picked`;
+  const today=new Date().toISOString().slice(0,10);
+  const body=$("#calBody");
+  if(!items.length){body.innerHTML=`<div class="chatempty">No deadlines yet. Open a paper → <b>VENUES</b> tab → scout venues, tick the ones you want, and <b>SAVE PICKS</b>. They'll show here and in the .ics.</div>`;return;}
+  body.innerHTML=items.map(it=>{
+    let dd="??",mo="",yr="",soon="";
+    if(it.date){const p=it.date.split("-");dd=p[2];mo=MON[parseInt(p[1])-1];yr=p[0];
+      const days=Math.round((new Date(it.date)-new Date(today))/86400000);
+      if(days<0)soon='';else if(days<=21)soon='calsoon';
+    }
+    const ver=it.deadline_verified?"":' ⚠unverified';
+    return `<div class="caldl">
+      <div class="caldate"><div class="d ${soon}">${dd}</div><div class="mo">${mo}</div><div class="yr">${yr}</div></div>
+      <div class="calmid">
+        <div class="calven">${esc(it.venue)} <span class="vtag tier${esc(it.tier)}">T${esc(it.tier)}</span> <span class="vtag">${esc(it.archival)}</span></div>
+        <div class="calpaper">${esc(it.paper)}</div>
+        <div class="calmeta">${esc(it.deadline||"")}${ver} · fit ${it.fit_score} · odds ${it.accept_odds}${it.cfp_url?` · <a href="${esc(it.cfp_url)}" target="_blank" rel="noopener" style="color:var(--cyan)">CFP↗</a>`:""}</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+function closeCalendar(){$("#calOverlay").classList.remove("open");}
+$("#calOverlay").addEventListener("click",e=>{if(e.target.id==="calOverlay")closeCalendar();});
+
+/* ---- batch revise ---- */
+let batch={id:null,timer:null,data:null};
+$("#batchZip").addEventListener("change",()=>{
+  const f=$("#batchZip").files[0]; $("#batchZip").value="";
+  if(!f)return;
+  const r=new FileReader();
+  r.onload=async()=>{
+    toast(`uploading ${f.name}…`);
+    try{
+      const j=await(await fetch("/api/batch/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({filename:f.name,content:r.result})})).json();
+      if(!j.ok){toast(`upload failed: ${j.error||""}`,true);return;}
+      openBatch(j.batch_id,j.n_files);
+    }catch(e){toast(`upload failed: ${e}`,true);}
+  };
+  r.readAsDataURL(f);
+});
+function openBatch(id,n){
+  batch.id=id; batch.data=null;
+  $("#batchOverlay").classList.add("open");
+  $("#batchTitle").textContent=`📦 Batch revise — ${n} file${n>1?"s":""}`;
+  $("#batchBody").innerHTML=`<div class="bmatching"><span class="spin">◍</span> codex is matching each markdown to its thread…</div>`;
+  $("#batchFoot").innerHTML="";
+  batch.timer=setInterval(pollBatch,1500); pollBatch();
+}
+function closeBatch(){$("#batchOverlay").classList.remove("open");if(batch.timer){clearInterval(batch.timer);batch.timer=null;}batch.id=null;}
+$("#batchOverlay").addEventListener("click",e=>{if(e.target.id==="batchOverlay")closeBatch();});
+async function pollBatch(){
+  if(!batch.id)return;
+  let d; try{d=await(await fetch(`/api/batch/${batch.id}`)).json();}catch(e){return;}
+  if(d.error){$("#batchBody").innerHTML=`<div class="bmatching" style="color:var(--red)">${esc(d.error)}</div>`;return;}
+  if(d.status==="matching")return; // keep spinner
+  if(batch.timer){clearInterval(batch.timer);batch.timer=null;}
+  batch.data=d; renderBatch(d);
+}
+function renderBatch(d){
+  const threads=d.threads||[];
+  const opts=(sel)=>`<option value="">— skip —</option>`+threads.map(t=>`<option value="${esc(t.run_id)}" ${t.run_id===sel?"selected":""}>${esc(t.title).slice(0,60)}</option>`).join("");
+  const rows=(d.assignments||[]).map((a,i)=>{
+    const c=a.confidence||0; const cc=c>=70?"hi":c>=40?"mid":"lo";
+    return `<tr>
+      <td class="fname">${esc(a.file)}</td>
+      <td>→</td>
+      <td><select id="bsel-${i}" class="${a.run_id?"":"unassigned"}" onchange="batchSelChanged(${i})">${opts(a.run_id)}</select></td>
+      <td><span class="bconf ${cc}">${c}%</span></td>
+      <td class="breason">${esc(a.reason||"")}</td>
+    </tr>`;
+  }).join("");
+  $("#batchBody").innerHTML=`<table class="btable">
+    <thead><tr><th>FILE</th><th></th><th>THREAD (codex match — edit if wrong)</th><th>CONF</th><th>WHY</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+  updateBatchFoot();
+}
+function batchSelChanged(i){
+  const s=$(`#bsel-${i}`); s.classList.toggle("unassigned",!s.value); updateBatchFoot();
+}
+function currentBatchAssignments(){
+  return (batch.data.assignments||[]).map((a,i)=>({file:a.file,run_id:($(`#bsel-${i}`)||{}).value||""}));
+}
+function updateBatchFoot(){
+  const n=currentBatchAssignments().filter(a=>a.run_id).length;
+  $("#batchFoot").innerHTML=`
+    <button class="btn primary" ${n?"":"disabled"} onclick="launchBatch()">🚀 LAUNCH ALL (${n})</button>
+    <button class="btn" onclick="closeBatch()">cancel</button>
+    <span class="ihint">${n} of ${(batch.data.assignments||[]).length} files assigned. Each launches a Submit-Changes revision on its thread.</span>`;
+}
+async function launchBatch(){
+  const assignments=currentBatchAssignments().filter(a=>a.run_id);
+  if(!assignments.length){toast("assign at least one file to a thread",true);return;}
+  if(!confirm(`Launch ${assignments.length} revision${assignments.length>1?"s":""}? Each thread re-runs coder → judge → compile.`))return;
+  try{
+    const j=await(await fetch(`/api/batch/${batch.id}/launch`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({assignments})})).json();
+    if(j.ok){toast(`launched ${j.launched} revision${j.launched>1?"s":""}`+(j.skipped&&j.skipped.length?`, skipped ${j.skipped.length}`:""));closeBatch();poll();}
+    else toast(`launch failed: ${j.error||""}`,true);
+  }catch(e){toast(`launch failed: ${e}`,true);}
+}
+
+/* ---- toast ---- */
+function toast(msg,isErr){const t=document.createElement("div");if(isErr)t.className="err";t.innerHTML=esc(msg);$("#toast").appendChild(t);setTimeout(()=>t.remove(),4600);}
+</script>
+</body>
+</html>

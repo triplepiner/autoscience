@@ -1,0 +1,83 @@
+# ==========================================================================
+# Autonomous Workshop-Paper Pipeline — orchestrator config
+# One idea file in -> one workshop-submittable PDF out, gated by an honest judge.
+# ==========================================================================
+
+# Models passed to `codex exec -m <model>`. All three roles use gpt-5.5 here
+# (Makar's configured codex default; unlimited uni credits).
+models:
+  planner: gpt-5.5
+  coder:   gpt-5.5
+  judge:   gpt-5.5
+
+# Per-call codex config overrides, applied via `-c key=value`.
+# These pin reasoning effort + service tier so a run does not depend on
+# whatever happens to be in ~/.codex/config.toml at the time.
+codex:
+  bin: codex                      # path to the codex binary (tests override this)
+  model_reasoning_effort: xhigh
+  service_tier: fast
+  extra_config: {}                # any additional `-c key=value` overrides
+
+# Hard caps. Enforced by the ORCHESTRATOR, not by trusting the agent.
+caps:
+  max_iterations: 5               # REVISE loops before REVISE_EXHAUSTED
+  wall_clock_per_build_min: 180   # SIGTERM->SIGKILL the codex subprocess on breach
+  wall_clock_per_plan_min: 30
+  wall_clock_per_judge_min: 60
+  wall_clock_total_min: 600       # checked between phases
+  max_cost_usd: null              # null = no cost cap (unlimited credits)
+
+coder:
+  goal_prompt: "/goal"            # slash prompt / profile used for long full-perm runs
+  sandbox: danger-full-access     # coder gets full perms INSIDE workspace/ only
+  allow_subagents: true
+  resume_on_revise: false         # false = cold-start each build (deterministic, judge-independent)
+
+planner:
+  sandbox: workspace-write        # planner needs to write PRD.md; no network needed
+
+judge:
+  sandbox: workspace-write        # judge MUST be able to re-run repro.sh to verify numbers
+  spot_check_min_numbers: 3       # if not running full repro, verify >= this many headline numbers
+  allow_hold: false               # false = judge never HOLDs; venue-fit is advisory only.
+                                  # A would-be HOLD (Criterion 1 already clean) compiles to a
+                                  # submittable PDF instead. Set true to restore venue-fit HOLD.
+
+# Coder isolation. Docker is not installed on this machine, so 'dir' is active.
+# A Dockerfile ships in the repo to upgrade to 'container' once Docker is available.
+isolation:
+  mode: dir                       # dir | container | vm
+  # docker_image: autoscience-coder   # used when mode == container
+
+# Halt after PLAN for a human glance at PRD.md (default off).
+review_prd_before_build: false
+
+# LLM API for research experiments that need one (e.g. "do LLMs quote arbitrage-free
+# prices?"). The orchestrator injects these into the coder + judge codex env so their
+# experiment code can call OpenRouter. The actual key lives in the gitignored
+# `secrets.local` (OPENROUTER_API_KEY=...), never in this file or the paper.
+experiment_api:
+  enabled: true
+  provider: openrouter
+  base_url: https://openrouter.ai/api/v1
+  default_model: deepseek/deepseek-v4-flash
+  api_key_file: secrets.local
+  also_set_openai_env: true       # mirror into OPENAI_API_KEY/OPENAI_BASE_URL so the
+                                  # stock openai SDK routes to OpenRouter unchanged
+
+# LaTeX compile.
+compile:
+  engine: auto                    # auto -> try pdflatex (offline MacTeX) then tectonic
+  max_passes: 3
+
+# Target venues. If the judge finds no exact-fit venue -> HOLD (don't downgrade).
+venues:
+  - name: "AI4Science@NeurIPS"
+    page_limit: 4
+    style: neurips_workshop.sty
+    scope: ["scientific ML", "sparse recovery", "dynamical systems"]
+
+paths:
+  runs_dir: ./runs
+  role_prompts_dir: ./prompts

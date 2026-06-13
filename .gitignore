@@ -1,0 +1,22 @@
+# --- secrets (never commit) ---
+secrets.local
+.env
+*.key
+
+# --- run artifacts & user data ---
+runs/
+ideas/uploaded/
+
+# --- logs & build noise ---
+*.log
+server.log
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+*.aux
+*.out
+_latexbuild/
+
+# --- local tooling ---
+.claude/

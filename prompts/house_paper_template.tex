@@ -1,0 +1,96 @@
+% ===========================================================================
+% AUTOSCIENCE HOUSE PAPER TEMPLATE — two-column, math-dense workshop paper.
+% Matches the reference look: full-width title + abstract, 2-column justified
+% body, Computer Modern, numbered sections, booktabs tables, numbered display
+% equations, dense inline math, single- and full-width figures.
+%
+% Compiles offline with pdflatex (no exotic packages). When a specific venue
+% .sty is selected for a run, ADAPT to it instead of this template — keep the
+% same structure and math density.
+% ===========================================================================
+\documentclass[10pt,twocolumn]{article}
+\usepackage[letterpaper,margin=0.85in,columnsep=0.28in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{microtype}
+\usepackage{url}
+
+\title{\bf <Paper Title>}
+\author{<Author> \\ <Affiliation> \\ \texttt{<email or ``email not provided''>}}
+\date{<Month Year>}
+
+\begin{document}
+
+% --- full-width title + abstract (spans both columns) ----------------------
+\twocolumn[
+  \begin{@twocolumnfalse}
+    \maketitle
+    \begin{abstract}
+      \noindent
+      % Abstract opens with the one-sentence thesis, then the scoped empirical
+      % claim. Keep it honest and specific; quote the headline numbers exactly
+      % as repro.sh produces them.
+      <one-sentence thesis>. <scoped empirical claim with exact numbers>.
+    \end{abstract}
+    \vspace{1.0em}
+  \end{@twocolumnfalse}
+]
+
+\section{Introduction}
+% Narrow scoped contribution. Include an explicit "what we did NOT find in a
+% literature scan on <date>" sentence, and a one-line differentiation of this
+% paper's axis vs sibling papers. Use inline math freely, e.g. the independent
+% variable is the configuration $c = (\text{optimizer}, \lambda, \dots)$.
+
+\section{Method}
+% Precise and reproducible: equations, grid/config, exact hyperparameters.
+% Use numbered display equations for every defined quantity, e.g.
+\begin{equation}
+  D(d,\sigma) \;=\; \frac{1}{T\binom{N}{2}} \sum_{t=1}^{T} \sum_{i<j}
+  \mathbf{1}\!\left[ S_{i,t}(d,\sigma) \neq S_{j,t}(d,\sigma) \right],
+  \label{eq:metric}
+\end{equation}
+% and define every symbol immediately after.
+
+\section{Results}
+% Figures + booktabs tables; honest reporting of censored/partial outcomes.
+% Single-column figure:
+% \begin{figure}[t]\centering\includegraphics[width=\linewidth]{figures/fig1}
+%   \caption{...}\label{fig:1}\end{figure}
+% booktabs table:
+\begin{table}[t]
+  \centering
+  \caption{Headline results. Every value is produced by \texttt{repro.sh}.}
+  \label{tab:headline}
+  \small
+  \begin{tabular}{lcc}
+    \toprule
+    Setting & Metric & 95\% CI \\
+    \midrule
+    <row> & <value> & <[lo, hi]> \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+% For wide tables/figures spanning both columns use table*/figure*.
+
+\section{Checks and Robustness}
+% Controls pass, seed-independence, threshold sensitivity. State the control
+% values (e.g. $D(0)=0$) explicitly.
+
+\section{Discussion and Limitations}
+% State what is NOT claimed. Failure modes reported as findings, not hidden.
+
+\section{Conclusion}
+% One paragraph: the scoped takeaway.
+
+\section*{Reproducibility statement}
+% Seeds, per-cell counts, one-command repro (\texttt{bash repro.sh}), and the
+% concrete artifact/release list.
+
+\begin{thebibliography}{9}
+\bibitem{ref1} <Author>. <Title>. <Venue>, <year>.
+\end{thebibliography}
+
+\end{document}

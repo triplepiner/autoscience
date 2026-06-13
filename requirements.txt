@@ -1,0 +1,3 @@
+# Core orchestrator dependency. Everything else is stdlib + system tools:
+#   codex (CLI), pdflatex or tectonic (LaTeX), pdfinfo (poppler, page count), git.
+PyYAML>=6.0
